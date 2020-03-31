@@ -30,10 +30,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
-	paramproposal "github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/supply"
+	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	"github.com/cosmos/modules/incubator/faucet"
 	"github.com/spf13/viper"
@@ -71,6 +71,7 @@ var (
 		params.AppModuleBasic{},
 		slashing.AppModuleBasic{},
 		supply.AppModuleBasic{},
+		upgrade.AppModuleBasic{},
 		crud.AppModule{},
 		faucet.AppModule{},
 	)
@@ -126,6 +127,7 @@ type CRUDApp struct {
 	govKeeper      gov.Keeper
 	supplyKeeper   supply.Keeper
 	paramsKeeper   params.Keeper
+	upgradeKeeper  upgrade.Keeper
 	crudKeeper     crud.Keeper
 	faucetKeeper   faucet.Keeper
 
@@ -134,7 +136,7 @@ type CRUDApp struct {
 }
 
 func NewCRUDApp(
-	logger log.Logger, db dbm.DB, baseAppOptions ...func(*bam.BaseApp),
+	logger log.Logger, db dbm.DB, skipUpgradeHeights map[int64]bool, home string, baseAppOptions ...func(*bam.BaseApp),
 ) *CRUDApp {
 
 	// First define the top level codec that will be shared by the different modules
@@ -145,7 +147,7 @@ func NewCRUDApp(
 
 	bApp.SetAppVersion(version.Version)
 
-	keys := sdk.NewKVStoreKeys(bam.MainStoreKey, auth.StoreKey, staking.StoreKey, supply.StoreKey, distr.StoreKey, slashing.StoreKey, gov.StoreKey, params.StoreKey, crud.StoreKey, faucet.StoreKey, crud.LeaseKey)
+	keys := sdk.NewKVStoreKeys(bam.MainStoreKey, auth.StoreKey, staking.StoreKey, supply.StoreKey, distr.StoreKey, slashing.StoreKey, gov.StoreKey, params.StoreKey, crud.StoreKey, faucet.StoreKey, upgrade.StoreKey, crud.LeaseKey)
 
 	tkeys := sdk.NewTransientStoreKeys(staking.TStoreKey, params.TStoreKey)
 
@@ -191,23 +193,22 @@ func NewCRUDApp(
 		maccPerms,
 	)
 
-	// Register the proposal types
-	govRouter := gov.NewRouter()
-	govRouter.AddRoute(gov.RouterKey, gov.ProposalHandler).
-		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.paramsKeeper)).
-		AddRoute(distr.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.distrKeeper)).
-		AddRoute(upgrade.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.upgradeKeeper))
-	app.govKeeper = gov.NewKeeper(
-		appCodec, keys[gov.StoreKey], govSubspace,
-		app.supplyKeeper, &stakingKeeper, govRouter,
-	)
-
 	// The staking keeper
 	stakingKeeper := staking.NewKeeper(
 		app.cdc,
 		keys[staking.StoreKey],
 		app.supplyKeeper,
 		stakingSubspace,
+	)
+
+	// Register the proposal types
+	govRouter := gov.NewRouter()
+	govRouter.AddRoute(gov.RouterKey, gov.ProposalHandler).
+		AddRoute(distr.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.distrKeeper)).
+		AddRoute(upgrade.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.upgradeKeeper))
+	app.govKeeper = gov.NewKeeper(
+		app.cdc, keys[gov.StoreKey], govSubspace,
+		app.supplyKeeper, &stakingKeeper, govRouter,
 	)
 
 	app.distrKeeper = distr.NewKeeper(
@@ -226,6 +227,8 @@ func NewCRUDApp(
 		&stakingKeeper,
 		slashingSubspace,
 	)
+
+	app.upgradeKeeper = upgrade.NewKeeper(skipUpgradeHeights, keys[upgrade.StoreKey], app.cdc)
 
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
