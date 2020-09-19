@@ -38,6 +38,7 @@ func GetQueryCmd(storeKey string, cdc *codec.Codec) *cobra.Command {
 		GetCmdQRead(storeKey, cdc),
 		GetCmdQHas(storeKey, cdc),
 		GetCmdQKeys(storeKey, cdc),
+		GetCmdQSearch(storeKey, cdc),
 		GetCmdQKeyValues(storeKey, cdc),
 		GetCmdQCount(storeKey, cdc),
 		GetCmdQGetLease(storeKey, cdc),
@@ -133,6 +134,42 @@ func GetCmdQKeys(queryRoute string, cdc *codec.Codec) *cobra.Command {
 		},
 	}
 }
+
+func GetCmdQSearch(queryRoute string, cdc *codec.Codec) *cobra.Command {
+	return &cobra.Command{
+		Use:   "search [UUID] [prefix] [page] [limit]",
+		Short: "search UUID prefix [page] [limit]",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
+			UUID := args[0]
+			prefix := args[1]
+
+			if len(args) < 3 {
+				args = append(args, "1")
+			}
+
+			if len(args) < 4 {
+				args = append(args, "100")
+			}
+
+			page := args[2]
+			limit := args[3]
+			res, _, _ := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/search/%s/%s/%s/%s", queryRoute, UUID, prefix, page, limit), nil)
+
+			var out types.QueryResultSearch
+			cdc.MustUnmarshalJSON(res, &out)
+
+			// ensure we don't lose the fact that the keyvalues list is empty...
+			if out.KeyValues == nil {
+				out.KeyValues = make([]types.KeyValue, 0)
+			}
+
+			return cliCtx.PrintOutput(out)
+		},
+	}
+}
+
 
 func GetCmdQKeyValues(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
