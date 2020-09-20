@@ -98,7 +98,7 @@ func BlzQSearchHandler(cliCtx context.CLIContext, storeName string) http.Handler
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
-		res, _, _ := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/search/%s/%s/%s/%s", storeName, vars["UUID"], vars["prefix"], vars["page"], vars["limit"]), nil)
+		res, _, _ := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/search/%s/%s/%s/%s/%s", storeName, vars["UUID"], vars["prefix"], vars["page"], vars["limit"], vars["direction"]), nil)
 
 		rest.PostProcessResponse(w, cliCtx, res)
 	}

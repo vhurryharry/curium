@@ -136,7 +136,8 @@ func GetCmdQKeys(queryRoute string, cdc *codec.Codec) *cobra.Command {
 }
 
 func GetCmdQSearch(queryRoute string, cdc *codec.Codec) *cobra.Command {
-	return &cobra.Command{
+	reverse := false
+	cmd := &cobra.Command{
 		Use:   "search [UUID] [prefix] [page] [limit]",
 		Short: "search UUID prefix [page] [limit]",
 		Args:  cobra.MinimumNArgs(2),
@@ -144,6 +145,11 @@ func GetCmdQSearch(queryRoute string, cdc *codec.Codec) *cobra.Command {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 			UUID := args[0]
 			prefix := args[1]
+
+			direction := "asc"
+			if reverse {
+				direction = "desc"
+			}
 
 			if len(args) < 3 {
 				args = append(args, "1")
@@ -155,7 +161,7 @@ func GetCmdQSearch(queryRoute string, cdc *codec.Codec) *cobra.Command {
 
 			page := args[2]
 			limit := args[3]
-			res, _, _ := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/search/%s/%s/%s/%s", queryRoute, UUID, prefix, page, limit), nil)
+			res, _, _ := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/search/%s/%s/%s/%s/%s", queryRoute, UUID, prefix, page, limit, direction), nil)
 
 			var out types.QueryResultSearch
 			cdc.MustUnmarshalJSON(res, &out)
@@ -168,6 +174,9 @@ func GetCmdQSearch(queryRoute string, cdc *codec.Codec) *cobra.Command {
 			return cliCtx.PrintOutput(out)
 		},
 	}
+	cmd.Flags().BoolVar(&reverse, "reverse", false, "Search in descending order")
+	return cmd
+
 }
 
 

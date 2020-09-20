@@ -117,7 +117,7 @@ func querySearch(ctx sdk.Context, path []string, _ abci.RequestQuery, keeper IKe
 	page, _  :=  strconv.ParseUint(path[2], 10, 64)
 	limit, _ := strconv.ParseUint(path[3], 10, 64)
 
-	res, err := codec.MarshalJSONIndent(cdc, keeper.Search(ctx, keeper.GetKVStore(ctx), path[0], path[1], uint(page), uint(limit), nil))
+	res, err := codec.MarshalJSONIndent(cdc, keeper.Search(ctx, keeper.GetKVStore(ctx), path[0], path[1], uint(page), uint(limit), path[4], nil))
 	if err != nil {
 		panic("could not marshal result to JSON")
 	}
